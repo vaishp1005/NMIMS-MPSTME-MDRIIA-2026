@@ -97,9 +97,13 @@ def fmea_plot(fmea: pd.DataFrame, out: str | Path) -> Path:
 
 
 def primary_boxplot(df: pd.DataFrame, out: str | Path, metric: str = "ttfs_min",
-                    condition: str | None = None) -> Path:
-    """Box plot of the primary metric, baseline vs proposed, successful runs only."""
-    sub = df if condition is None else df[df["condition"] == condition]
+                    condition: str | tuple[str, ...] | None = None) -> Path:
+    """Box plot of the primary metric, baseline vs proposed, successful runs only.
+
+    ``condition`` may be one condition, several (pooled), or ``None`` for all of them.
+    """
+    conds = (condition,) if isinstance(condition, str) else condition
+    sub = df if conds is None else df[df["condition"].isin(conds)]
     sub = sub[sub["success"] == 1]
     labels = ["baseline", "proposed"]
     data = [sub[sub["controller"] == lab][metric].dropna().to_numpy() for lab in labels]
@@ -108,7 +112,8 @@ def primary_boxplot(df: pd.DataFrame, out: str | Path, metric: str = "ttfs_min",
     for patch, lab in zip(bp["boxes"], labels, strict=True):
         patch.set_facecolor(COLORS[lab]), patch.set_alpha(0.6)
     ax.set_ylabel(metric.replace("_", " "))
-    ax.set_title(f"{metric}: {condition or 'all conditions'}")
+    label = conds[0] if conds is not None and len(conds) == 1 else ("protocol conditions pooled" if conds is not None else "all conditions")
+    ax.set_title(f"{metric}: {label}")
     fig.savefig(out, dpi=DPI)
     plt.close(fig)
     return Path(out)
